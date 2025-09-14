@@ -1,0 +1,19 @@
+-- Ton618 Hub Loader + Mobile Blocker
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
+
+-- Detect if player is on mobile
+local platform = UserInputService:GetPlatform()
+local isMobilePlatform = (platform == Enum.Platform.Android or platform == Enum.Platform.IOS)
+local touchNoKeyboard = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local isMobile = isMobilePlatform or touchNoKeyboard
+
+if isMobile then
+    player:Kick("This script does not support mobile. I'm sorry.")
+    return
+end
+
+-- ✅ Load your Ton618 script from GitHub
+loadstring(game:HttpGet("https://raw.githubusercontent.com/KieurOo/ArsenalTon618V2/refs/heads/main/Ton-618v2-Op"))()
