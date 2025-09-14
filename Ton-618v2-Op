@@ -1,0 +1,1708 @@
+-- Ton618 hub! (reskinned) -- Modified from Froze hub! with Arsenal features
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Stats = game:GetService("Stats")
+local LocalPlayer = Players.LocalPlayer
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+-- Check if GUI already exists
+local existingGui = playerGui:FindFirstChild("Ton618Hub")
+if existingGui then
+    existingGui:Destroy()
+    print("Destroyed existing Ton618 hub! — loading new one")
+end
+-- CONFIG
+local TOGGLE_KEY = Enum.KeyCode.K
+local VOID_FLAKE_ASSET_ID = "rbxassetid://1234567890" -- Placeholder for black hole or space-themed thumbnail (replace with actual asset ID)
+local TON_PRIMARY = Color3.fromRGB(200, 100, 255) -- Purple primary
+local TON_ACCENT = Color3.fromRGB(150, 50, 200) -- Deep purple accent
+local TON_BG = Color3.fromRGB(10, 10, 20) -- Dark cosmic background
+local UI_PADDING = 8
+local ESP_COLOR = Color3.fromRGB(200, 100, 255) -- Purple ESP
+-- Sounds (adjusted for theme, perhaps deeper sounds)
+local function createSounds()
+    tingSound = Instance.new("Sound")
+    tingSound.SoundId = "rbxassetid://17684982508" -- Keep or change to a cosmic ping
+    tingSound.Volume = 0.5
+    tingSound.Parent = playerGui
+    typeSound = Instance.new("Sound")
+    typeSound.SoundId = "rbxassetid://7147420522" -- Typing sound
+    typeSound.Volume = 0.3
+    typeSound.Parent = playerGui
+    kuruSound = Instance.new("Sound")
+    kuruSound.SoundId = "rbxassetid://8267542418" -- Keep or change
+    kuruSound.Volume = 0.5
+    kuruSound.Parent = playerGui
+end
+createSounds()
+LocalPlayer.CharacterAdded:Connect(function()
+    createSounds()
+end)
+-- Utilities
+local function create(class, props)
+    local obj = Instance.new(class)
+    for k,v in pairs(props or {}) do
+        if k == "Parent" then obj.Parent = v else pcall(function() obj[k] = v end) end
+    end
+    return obj
+end
+local function tween(instance, props, info)
+    info = info or TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+    TweenService:Create(instance, info, props):Play()
+end
+-- Function to add hover animation to buttons (tilt sideways, adjusted for Ton618 style)
+local function addHoverAnim(btn)
+    btn.MouseEnter:Connect(function()
+        tween(btn, {Rotation = 5}, TweenInfo.new(0.15, Enum.EasingStyle.Quad))
+    end)
+    btn.MouseLeave:Connect(function()
+        tween(btn, {Rotation = 0}, TweenInfo.new(0.15, Enum.EasingStyle.Quad))
+    end)
+end
+-- Root ScreenGui (shared)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "Ton618Hub"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+-- Notifier system (matches main GUI style)
+local notifRoot = create("Frame", {Parent = screenGui, Size = UDim2.new(0, 320, 0, 200), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(0.98, 0, 0.98, 0), BackgroundTransparency = 1, Name = "Ton618_Notifications"})
+local notifLayout = create("UIListLayout", {Parent = notifRoot, Padding = UDim.new(0, 8), FillDirection = Enum.FillDirection.Vertical, VerticalAlignment = Enum.VerticalAlignment.Bottom, SortOrder = Enum.SortOrder.LayoutOrder})
+local notifCounter = 0
+local function notify(text)
+    if not screenGui or not screenGui.Parent then return end
+    notifCounter = notifCounter - 1
+    local notif = create("Frame", {Parent = notifRoot, Size = UDim2.new(0, 0, 0, 56), BackgroundColor3 = Color3.fromRGB(5,5,10), BorderSizePixel = 0, LayoutOrder = notifCounter})
+    create("UICorner", {Parent = notif, CornerRadius = UDim.new(0,10)})
+    create("UIStroke", {Parent = notif, Color = TON_ACCENT, Thickness = 2})
+    local lbl = create("TextLabel", {Parent = notif, Size = UDim2.new(1, -16, 1, -8), Position = UDim2.new(0, 8, 0, 8), BackgroundTransparency = 1, Text = "Ton618: " .. text, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 14, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left})
+    tween(notif, {Size = UDim2.new(0, 320, 0, 56)}, TweenInfo.new(0.22, Enum.EasingStyle.Quad))
+    tingSound:Play()
+    delay(3, function()
+        tween(notif, {Size = UDim2.new(0, 0, 0, 56)}, TweenInfo.new(0.18, Enum.EasingStyle.Quad))
+        wait(0.22)
+        pcall(function() notif:Destroy() end)
+    end)
+end
+-- Main frame (centered) -- start hidden so loader can reveal it cleanly
+local main = create("Frame", {Parent = screenGui, Name = "Main", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), Size = UDim2.new(0, 920, 0, 540), BackgroundColor3 = TON_BG, BorderSizePixel = 0, Visible = false})
+create("UICorner", {Parent = main, CornerRadius = UDim.new(0, 14)})
+create("UIStroke", {Parent = main, Color = TON_ACCENT, Thickness = 2, ApplyStrokeMode = "Border"})
+-- Glowing highlight (adjusted color for Ton618)
+local glowStroke = create("UIStroke", {Parent = main, Color = Color3.fromRGB(150, 0, 255), Transparency = 0.5, Thickness = 4, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
+RunService.Heartbeat:Connect(function()
+    glowStroke.Transparency = 0.3 + 0.4 * (1 + math.sin(tick() * 3)) / 2
+end)
+-- Header (logo + title + close)
+local header = create("Frame", {Parent = main, Name = "Header", Size = UDim2.new(1, 0, 0, 86), BackgroundTransparency = 1})
+local logo = create("ImageLabel", {Parent = header, Name = "Logo", Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(0, 72, 0, 72), BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(20,10,30), Image = VOID_FLAKE_ASSET_ID})
+create("UICorner", {Parent = logo, CornerRadius = UDim.new(0, 18)})
+local title = create("TextLabel", {Parent = header, Position = UDim2.new(0, 96, 0, 24), Size = UDim2.new(0.35, 0, 0, 32), Text = "Ton618 hub!", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left})
+local closeBtn = create("TextButton", {Parent = header, Name = "CloseBtn", Size = UDim2.new(0, 64, 0, 28), Position = UDim2.new(1, -76, 0, 18), BackgroundColor3 = Color3.fromRGB(8,15,25), Text = "Close", TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 14})
+create("UICorner", {Parent = closeBtn, CornerRadius = UDim.new(0,8)})
+create("UIStroke", {Parent = closeBtn, Color = TON_ACCENT, Thickness = 1})
+addHoverAnim(closeBtn) -- Add animation to close button
+-- Content area
+local content = create("Frame", {Parent = main, Name = "Content", Position = UDim2.new(0, 12, 0, 96), Size = UDim2.new(1, -24, 0, 420), BackgroundTransparency = 1})
+local homePage = create("Frame", {Parent = content, Name = "Home", Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = true})
+local homeScroll = create("ScrollingFrame", {Parent = homePage, Position = UDim2.new(0,0,0,0), Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 6})
+local homeLayout = create("UIListLayout", {Parent = homeScroll, Padding = UDim.new(0,12), FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})
+-- Panel helper
+local function panel(parent, titleText, height)
+    local p = create("Frame", {Parent = parent, Size = UDim2.new(1, 0, 0, height or 140), BackgroundColor3 = Color3.fromRGB(5,5,10), BorderSizePixel = 0})
+    create("UICorner", {Parent = p, CornerRadius = UDim.new(0, 10)})
+    create("UIStroke", {Parent = p, Color = TON_ACCENT, Thickness = 1})
+    local title = create("TextLabel", {Parent = p, Position = UDim2.new(0, 12, 0, 8), Size = UDim2.new(1, -24, 0, 22), Text = titleText, BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
+    return p
+end
+-- Integrate Arsenal features
+do -- Main Tab features
+local mainPanel = panel(homeScroll, "Main", 400)
+local hitboxEnabled = false
+local noCollisionEnabled = false
+local hitbox_original_properties = {}
+local hitboxSize = 21
+local hitboxTransparency = 6
+local teamCheck = "FFA"
+local defaultBodyParts = {
+    "UpperTorso",
+    "Head",
+    "HumanoidRootPart"
+}
+local ScreenGuiWarn = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
+local WarningText = create("TextLabel", {Parent = ScreenGuiWarn, Size = UDim2.new(0, 200, 0, 50), TextSize = 16, Position = UDim2.new(0.5, -150, 0, 0), Text = "Warning: There may be a bug that causes collisions.", TextColor3 = Color3.new(1, 0, 0), BackgroundTransparency = 1, Visible = false})
+local function savedPart(player, part)
+    if not hitbox_original_properties[player] then
+        hitbox_original_properties[player] = {}
+    end
+    if not hitbox_original_properties[player][part.Name] then
+        hitbox_original_properties[player][part.Name] = {
+            CanCollide = part.CanCollide,
+            Transparency = part.Transparency,
+            Size = part.Size
+        }
+    end
+end
+local function restoredPart(player)
+    if hitbox_original_properties[player] then
+        for partName, properties in pairs(hitbox_original_properties[player]) do
+            local part = player.Character and player.Character:FindFirstChild(partName)
+            if part and part:IsA("BasePart") then
+                part.CanCollide = properties.CanCollide
+                part.Transparency = properties.Transparency
+                part.Size = properties.Size
+            end
+        end
+    end
+end
+local function findClosestPart(player, partName)
+    if not player.Character then return nil end
+    local characterParts = player.Character:GetChildren()
+    for _, part in ipairs(characterParts) do
+        if part:IsA("BasePart") and part.Name:lower():match(partName:lower()) then
+            return part
+        end
+    end
+    return nil
+end
+local function extendHitbox(player)
+    for _, partName in ipairs(defaultBodyParts) do
+        local part = player.Character and (player.Character:FindFirstChild(partName) or findClosestPart(player, partName))
+        if part and part:IsA("BasePart") then
+            savedPart(player, part)
+            part.CanCollide = not noCollisionEnabled
+            part.Transparency = hitboxTransparency / 10
+            part.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+        end
+    end
+end
+local function isEnemy(player)
+    if teamCheck == "FFA" or teamCheck == "Everyone" then
+        return true
+    end
+    local localPlayerTeam = LocalPlayer.Team
+    return player.Team ~= localPlayerTeam
+end
+local function shouldExtendHitbox(player)
+    return isEnemy(player)
+end
+local function updateHitboxes()
+    for _, v in ipairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            if shouldExtendHitbox(v) then
+                extendHitbox(v)
+            else
+                restoredPart(v)
+            end
+        end
+    end
+end
+local function onCharacterAdded(character)
+    task.wait(0.1)
+    if hitboxEnabled then
+        updateHitboxes()
+    end
+end
+local function onPlayerAdded(player)
+    player.CharacterAdded:Connect(onCharacterAdded)
+    player.CharacterRemoving:Connect(function()
+        restoredPart(player)
+        hitbox_original_properties[player] = nil
+    end)
+end
+local function checkForDeadPlayers()
+    for player, properties in pairs(hitbox_original_properties) do
+        if not player.Parent or not player.Character or not player.Character:IsDescendantOf(game) then
+            restoredPart(player)
+            hitbox_original_properties[player] = nil
+        end
+    end
+end
+Players.PlayerAdded:Connect(onPlayerAdded)
+for _, player in ipairs(Players:GetPlayers()) do
+    onPlayerAdded(player)
+end
+local enableHitboxBtn = create("TextButton", {Parent = mainPanel, Position = UDim2.new(0, 12, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Enable Hitbox", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = enableHitboxBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(enableHitboxBtn)
+enableHitboxBtn.MouseButton1Click:Connect(function()
+    coroutine.wrap(function()
+        while true do
+            if hitboxEnabled then
+                updateHitboxes()
+                checkForDeadPlayers()
+            end
+            task.wait(0.1)
+        end
+    end)()
+    notify("Hitbox enabled loop started")
+end)
+local toggleHitbox = false
+local hitboxToggleBtn = create("TextButton", {Parent = mainPanel, Position = UDim2.new(0, 220, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Toggle Hitbox: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = hitboxToggleBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(hitboxToggleBtn)
+hitboxToggleBtn.MouseButton1Click:Connect(function()
+    toggleHitbox = not toggleHitbox
+    hitboxToggleBtn.Text = "Toggle Hitbox: " .. (toggleHitbox and "On" or "Off")
+    hitboxEnabled = toggleHitbox
+    if not toggleHitbox then
+        for _, player in ipairs(Players:GetPlayers()) do
+            restoredPart(player)
+        end
+        hitbox_original_properties = {}
+    else
+        updateHitboxes()
+    end
+end)
+local hitboxSizeLabel = create("TextLabel", {Parent = mainPanel, Position = UDim2.new(0, 12, 0, 70), Size = UDim2.new(0, 200, 0, 20), Text = "Hitbox Size: 21", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local hitboxSizeBox = create("TextBox", {Parent = mainPanel, Position = UDim2.new(0, 220, 0, 68), Size = UDim2.new(0, 120, 0, 24), Text = "21", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = hitboxSizeBox, CornerRadius = UDim.new(0, 6)})
+local applySizeBtn = create("TextButton", {Parent = mainPanel, Position = UDim2.new(0, 360, 0, 68), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applySizeBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applySizeBtn)
+applySizeBtn.MouseButton1Click:Connect(function()
+    hitboxSize = tonumber(hitboxSizeBox.Text) or 21
+    hitboxSizeLabel.Text = "Hitbox Size: " .. hitboxSize
+    if hitboxEnabled then
+        updateHitboxes()
+    end
+end)
+local hitboxTransLabel = create("TextLabel", {Parent = mainPanel, Position = UDim2.new(0, 12, 0, 100), Size = UDim2.new(0, 200, 0, 20), Text = "Hitbox Transparency: 6", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local hitboxTransBox = create("TextBox", {Parent = mainPanel, Position = UDim2.new(0, 220, 0, 98), Size = UDim2.new(0, 120, 0, 24), Text = "6", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = hitboxTransBox, CornerRadius = UDim.new(0, 6)})
+local applyTransBtn = create("TextButton", {Parent = mainPanel, Position = UDim2.new(0, 360, 0, 98), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyTransBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyTransBtn)
+applyTransBtn.MouseButton1Click:Connect(function()
+    hitboxTransparency = tonumber(hitboxTransBox.Text) or 6
+    hitboxTransLabel.Text = "Hitbox Transparency: " .. hitboxTransparency
+    if hitboxEnabled then
+        updateHitboxes()
+    end
+end)
+local teamCheckLabel = create("TextLabel", {Parent = mainPanel, Position = UDim2.new(0, 12, 0, 130), Size = UDim2.new(0, 200, 0, 20), Text = "Team Check: FFA", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local teamCheckBox = create("TextBox", {Parent = mainPanel, Position = UDim2.new(0, 220, 0, 128), Size = UDim2.new(0, 120, 0, 24), Text = "FFA", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = teamCheckBox, CornerRadius = UDim.new(0, 6)})
+local applyTeamBtn = create("TextButton", {Parent = mainPanel, Position = UDim2.new(0, 360, 0, 128), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyTeamBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyTeamBtn)
+applyTeamBtn.MouseButton1Click:Connect(function()
+    teamCheck = teamCheckBox.Text or "FFA"
+    teamCheckLabel.Text = "Team Check: " .. teamCheck
+    if hitboxEnabled then
+        updateHitboxes()
+    end
+end)
+local noCollisionToggle = false
+local noCollisionBtn = create("TextButton", {Parent = mainPanel, Position = UDim2.new(0, 12, 0, 160), Size = UDim2.new(0, 200, 0, 28), Text = "No Collision: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = noCollisionBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(noCollisionBtn)
+noCollisionBtn.MouseButton1Click:Connect(function()
+    noCollisionToggle = not noCollisionToggle
+    noCollisionBtn.Text = "No Collision: " .. (noCollisionToggle and "On" or "Off")
+    noCollisionEnabled = noCollisionToggle
+    WarningText.Visible = noCollisionToggle
+    coroutine.wrap(function()
+        while noCollisionEnabled do
+            if hitboxEnabled then
+                updateHitboxes()
+            end
+            task.wait(0.01)
+        end
+        if hitboxEnabled then
+            updateHitboxes()
+        end
+    end)()
+end)
+local autoFarm = false
+local autoFarmBtn = create("TextButton", {Parent = mainPanel, Position = UDim2.new(0, 12, 0, 200), Size = UDim2.new(0, 200, 0, 28), Text = "AutoFarm: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = autoFarmBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(autoFarmBtn)
+local runServiceConnection
+local mouseDown = false
+local player = game.Players.LocalPlayer
+local camera = game.Workspace.CurrentCamera
+local function getClosestEnemyPlayer()
+    local closestDistance = math.huge
+    local closestPlayer = nil
+    for _, enemyPlayer in pairs(game.Players:GetPlayers()) do
+        if enemyPlayer ~= player and enemyPlayer.TeamColor ~= player.TeamColor and enemyPlayer.Character then
+            local character = enemyPlayer.Character
+            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character:FindFirstChild("Humanoid")
+            if humanoidRootPart and humanoid and humanoid.Health > 0 then
+                local distance = (player.Character.HumanoidRootPart.Position - humanoidRootPart.Position).Magnitude
+                if distance < closestDistance and humanoidRootPart.Position.Y >= 0 then
+                    closestDistance = distance
+                    closestPlayer = enemyPlayer
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+local function startAutoFarm()
+    game:GetService("ReplicatedStorage").wkspc.TimeScale.Value = 12
+    runServiceConnection = game:GetService("RunService").Stepped:Connect(function()
+        if autoFarm then
+            local closestPlayer = getClosestEnemyPlayer()
+            if closestPlayer then
+                local targetPosition = closestPlayer.Character.HumanoidRootPart.Position + Vector3.new(0, 0, -4)
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, closestPlayer.Character.Head.Position)
+                    if not mouseDown then
+                        mouse1press()
+                        mouseDown = true
+                    end
+                end
+            else
+                if mouseDown then
+                    mouse1release()
+                    mouseDown = false
+                end
+            end
+        else
+            if runServiceConnection then
+                runServiceConnection:Disconnect()
+                runServiceConnection = nil
+            end
+            if mouseDown then
+                mouse1release()
+                mouseDown = false
+            end
+        end
+    end)
+end
+local function onCharacterAdded(character)
+    wait(0.5)
+    startAutoFarm()
+end
+player.CharacterAdded:Connect(onCharacterAdded)
+autoFarmBtn.MouseButton1Click:Connect(function()
+    autoFarm = not autoFarm
+    autoFarmBtn.Text = "AutoFarm: " .. (autoFarm and "On" or "Off")
+    game:GetService("ReplicatedStorage").wkspc.CurrentCurse.Value = autoFarm and "Infinite Ammo" or ""
+    if autoFarm then
+        wait(0.5)
+        startAutoFarm()
+    else
+        game:GetService("ReplicatedStorage").wkspc.CurrentCurse.Value = ""
+        game:GetService("ReplicatedStorage").wkspc.TimeScale.Value = 1
+        if runServiceConnection then
+            runServiceConnection:Disconnect()
+            runServiceConnection = nil
+        end
+        if mouseDown then
+            mouse1release()
+            mouseDown = false
+        end
+    end
+end)
+end
+do -- Gun Modded Tab features
+local gunPanel = panel(homeScroll, "Gun Modded", 300)
+local infAmmoV1 = false
+local infAmmoV1Btn = create("TextButton", {Parent = gunPanel, Position = UDim2.new(0, 12, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Infinite Ammo v1: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = infAmmoV1Btn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(infAmmoV1Btn)
+infAmmoV1Btn.MouseButton1Click:Connect(function()
+    infAmmoV1 = not infAmmoV1
+    infAmmoV1Btn.Text = "Infinite Ammo v1: " .. (infAmmoV1 and "On" or "Off")
+    game:GetService("ReplicatedStorage").wkspc.CurrentCurse.Value = infAmmoV1 and "Infinite Ammo" or ""
+end)
+local infAmmoV2 = false
+local infAmmoV2Btn = create("TextButton", {Parent = gunPanel, Position = UDim2.new(0, 220, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Infinite Ammo v2: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = infAmmoV2Btn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(infAmmoV2Btn)
+infAmmoV2Btn.MouseButton1Click:Connect(function()
+    infAmmoV2 = not infAmmoV2
+    infAmmoV2Btn.Text = "Infinite Ammo v2: " .. (infAmmoV2 and "On" or "Off")
+    if infAmmoV2 then
+        game:GetService("RunService").Stepped:connect(function()
+            pcall(function()
+                if infAmmoV2 then
+                    local playerGui = game:GetService("Players").LocalPlayer.PlayerGui
+                    playerGui.GUI.Client.Variables.ammocount.Value = 99
+                    playerGui.GUI.Client.Variables.ammocount2.Value = 99
+                end
+            end)
+        end)
+    end
+end)
+local originalValues = { -- saves/stores the original Values of the gun value :3
+    FireRate = {},
+    ReloadTime = {},
+    EReloadTime = {},
+    Auto = {},
+    Spread = {},
+    Recoil = {}
+}
+local fastReload = false
+local fastReloadBtn = create("TextButton", {Parent = gunPanel, Position = UDim2.new(0, 12, 0, 70), Size = UDim2.new(0, 200, 0, 28), Text = "Fast Reload: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = fastReloadBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(fastReloadBtn)
+fastReloadBtn.MouseButton1Click:Connect(function()
+    fastReload = not fastReload
+    fastReloadBtn.Text = "Fast Reload: " .. (fastReload and "On" or "Off")
+    for _, v in pairs(game.ReplicatedStorage.Weapons:GetChildren()) do
+        if v:FindFirstChild("ReloadTime") then
+            if fastReload then
+                if not originalValues.ReloadTime[v] then
+                    originalValues.ReloadTime[v] = v.ReloadTime.Value
+                end
+                v.ReloadTime.Value = 0.01
+            else
+                if originalValues.ReloadTime[v] then
+                    v.ReloadTime.Value = originalValues.ReloadTime[v]
+                else
+                    v.ReloadTime.Value = 0.8
+                end
+            end
+        end
+        if v:FindFirstChild("EReloadTime") then
+            if fastReload then
+                if not originalValues.EReloadTime[v] then
+                    originalValues.EReloadTime[v] = v.EReloadTime.Value
+                end
+                v.EReloadTime.Value = 0.01
+            else
+                if originalValues.EReloadTime[v] then
+                    v.EReloadTime.Value = originalValues.EReloadTime[v]
+                else
+                    v.EReloadTime.Value = 0.8
+                end
+            end
+        end
+    end
+end)
+local fastFire = false
+local fastFireBtn = create("TextButton", {Parent = gunPanel, Position = UDim2.new(0, 220, 0, 70), Size = UDim2.new(0, 200, 0, 28), Text = "Fast Fire Rate: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = fastFireBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(fastFireBtn)
+fastFireBtn.MouseButton1Click:Connect(function()
+    fastFire = not fastFire
+    fastFireBtn.Text = "Fast Fire Rate: " .. (fastFire and "On" or "Off")
+    for _, v in pairs(game.ReplicatedStorage.Weapons:GetDescendants()) do
+        if v.Name == "FireRate" or v.Name == "BFireRate" then
+            if fastFire then
+                if not originalValues.FireRate[v] then
+                    originalValues.FireRate[v] = v.Value
+                end
+                v.Value = 0.02
+            else
+                if originalValues.FireRate[v] then
+                    v.Value = originalValues.FireRate[v]
+                else
+                    v.Value = 0.8
+                end
+            end
+        end
+    end
+end)
+local alwaysAuto = false
+local alwaysAutoBtn = create("TextButton", {Parent = gunPanel, Position = UDim2.new(0, 12, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "Always Auto: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = alwaysAutoBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(alwaysAutoBtn)
+alwaysAutoBtn.MouseButton1Click:Connect(function()
+    alwaysAuto = not alwaysAuto
+    alwaysAutoBtn.Text = "Always Auto: " .. (alwaysAuto and "On" or "Off")
+    for _, v in pairs(game.ReplicatedStorage.Weapons:GetDescendants()) do
+        if v.Name == "Auto" or v.Name == "AutoFire" or v.Name == "Automatic" or v.Name == "AutoShoot" or v.Name == "AutoGun" then
+            if alwaysAuto then
+                if not originalValues.Auto[v] then
+                    originalValues.Auto[v] = v.Value
+                end
+                v.Value = true
+            else
+                if originalValues.Auto[v] then
+                    v.Value = originalValues.Auto[v]
+                else
+                    v.Value = false
+                end
+            end
+        end
+    end
+end)
+local noSpread = false
+local noSpreadBtn = create("TextButton", {Parent = gunPanel, Position = UDim2.new(0, 220, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "No Spread: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = noSpreadBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(noSpreadBtn)
+noSpreadBtn.MouseButton1Click:Connect(function()
+    noSpread = not noSpread
+    noSpreadBtn.Text = "No Spread: " .. (noSpread and "On" or "Off")
+    for _, v in pairs(game:GetService("ReplicatedStorage").Weapons:GetDescendants()) do
+        if v.Name == "MaxSpread" or v.Name == "Spread" or v.Name == "SpreadControl" then
+            if noSpread then
+                if not originalValues.Spread[v] then
+                    originalValues.Spread[v] = v.Value
+                end
+                v.Value = 0
+            else
+                if originalValues.Spread[v] then
+                    v.Value = originalValues.Spread[v]
+                else
+                    v.Value = 1
+                end
+            end
+        end
+    end
+end)
+local noRecoil = false
+local noRecoilBtn = create("TextButton", {Parent = gunPanel, Position = UDim2.new(0, 12, 0, 130), Size = UDim2.new(0, 200, 0, 28), Text = "No Recoil: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = noRecoilBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(noRecoilBtn)
+noRecoilBtn.MouseButton1Click:Connect(function()
+    noRecoil = not noRecoil
+    noRecoilBtn.Text = "No Recoil: " .. (noRecoil and "On" or "Off")
+    for _, v in pairs(game:GetService("ReplicatedStorage").Weapons:GetDescendants()) do
+        if v.Name == "RecoilControl" or v.Name == "Recoil" then
+            if noRecoil then
+                if not originalValues.Recoil[v] then
+                    originalValues.Recoil[v] = v.Value
+                end
+                v.Value = 0
+            else
+                if originalValues.Recoil[v] then
+                    v.Value = originalValues.Recoil[v]
+                else
+                    v.Value = 1
+                end
+            end
+        end
+    end
+end)
+end
+do -- Player Tab features
+local playerPanel = panel(homeScroll, "Player", 600)
+-- Fly
+local flySettings={fly=false,flyspeed=50}
+local c local h local bv local bav local cam local flying local p=game.Players.LocalPlayer
+local buttons={W=false,S=false,A=false,D=false,Moving=false}
+local startFly=function()if not p.Character or not p.Character.Head or flying then return end c=p.Character h=c.Humanoid h.PlatformStand=true cam=workspace:WaitForChild('Camera') bv=Instance.new("BodyVelocity") bav=Instance.new("BodyAngularVelocity") bv.Velocity,bv.MaxForce,bv.P=Vector3.new(0,0,0),Vector3.new(10000,10000,10000),1000 bav.AngularVelocity,bav.MaxTorque,bav.P=Vector3.new(0,0,0),Vector3.new(10000,10000,10000),1000 bv.Parent=c.Head bav.Parent=c.Head flying=true h.Died:connect(function()flying=false end)end
+local endFly=function()if not p.Character or not flying then return end h.PlatformStand=false bv:Destroy() bav:Destroy() flying=false end
+game:GetService("UserInputService").InputBegan:connect(function(input,GPE)if GPE then return end for i,e in pairs(buttons)do if i~="Moving" and input.KeyCode==Enum.KeyCode[i]then buttons[i]=true buttons.Moving=true end end end)
+game:GetService("UserInputService").InputEnded:connect(function(input,GPE)if GPE then return end local a=false for i,e in pairs(buttons)do if i~="Moving"then if input.KeyCode==Enum.KeyCode[i]then buttons[i]=false end if buttons[i]then a=true end end end buttons.Moving=a end)
+local setVec=function(vec)return vec*(flySettings.flyspeed/vec.Magnitude)end
+game:GetService("RunService").Heartbeat:connect(function(step)if flying and c and c.PrimaryPart then local p=c.PrimaryPart.Position local cf=cam.CFrame local ax,ay,az=cf:toEulerAnglesXYZ()c:SetPrimaryPartCFrame(CFrame.new(p.x,p.y,p.z)*CFrame.Angles(ax,ay,az))if buttons.Moving then local t=Vector3.new()if buttons.W then t=t+(setVec(cf.lookVector))end if buttons.S then t=t-(setVec(cf.lookVector))end if buttons.A then t=t-(setVec(cf.rightVector))end if buttons.D then t=t+(setVec(cf.rightVector))end c:TranslateBy(t*step)end end end)
+local flyToggleBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Fly: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = flyToggleBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(flyToggleBtn)
+flyToggleBtn.MouseButton1Click:Connect(function()
+    flySettings.fly = not flySettings.fly
+    flyToggleBtn.Text = "Fly: " .. (flySettings.fly and "On" or "Off")
+    if flySettings.fly then
+        startFly()
+    else
+        endFly()
+    end
+end)
+local flySpeedLabel = create("TextLabel", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 70), Size = UDim2.new(0, 200, 0, 20), Text = "Fly Speed: 50", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local flySpeedBox = create("TextBox", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 68), Size = UDim2.new(0, 120, 0, 24), Text = "50", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = flySpeedBox, CornerRadius = UDim.new(0, 6)})
+local applyFlySpeedBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 360, 0, 68), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyFlySpeedBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyFlySpeedBtn)
+applyFlySpeedBtn.MouseButton1Click:Connect(function()
+    flySettings.flyspeed = tonumber(flySpeedBox.Text) or 50
+    flySpeedLabel.Text = "Fly Speed: " .. flySettings.flyspeed
+end)
+-- Speed
+local speedSettings = {WalkSpeed = 16}
+local isWalkSpeedEnabled = false
+local walkToggleBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "Custom WalkSpeed: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = walkToggleBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(walkToggleBtn)
+walkToggleBtn.MouseButton1Click:Connect(function()
+    isWalkSpeedEnabled = not isWalkSpeedEnabled
+    walkToggleBtn.Text = "Custom WalkSpeed: " .. (isWalkSpeedEnabled and "On" or "Off")
+end)
+local walkMethods = {"Velocity", "Vector", "CFrame"}
+local selectedWalkMethod = walkMethods[1]
+local walkMethodLabel = create("TextLabel", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 130), Size = UDim2.new(0, 200, 0, 20), Text = "Walk Method: Velocity", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local walkMethodBox = create("TextBox", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 128), Size = UDim2.new(0, 120, 0, 24), Text = "Velocity", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = walkMethodBox, CornerRadius = UDim.new(0, 6)})
+local applyWalkMethodBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 360, 0, 128), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyWalkMethodBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyWalkMethodBtn)
+applyWalkMethodBtn.MouseButton1Click:Connect(function()
+    selectedWalkMethod = walkMethodBox.Text or "Velocity"
+    walkMethodLabel.Text = "Walk Method: " .. selectedWalkMethod
+end)
+local walkSpeedLabel = create("TextLabel", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 160), Size = UDim2.new(0, 200, 0, 20), Text = "Walkspeed Power: 16", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local walkSpeedBox = create("TextBox", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 158), Size = UDim2.new(0, 120, 0, 24), Text = "16", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = walkSpeedBox, CornerRadius = UDim.new(0, 6)})
+local applyWalkSpeedBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 360, 0, 158), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyWalkSpeedBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyWalkSpeedBtn)
+applyWalkSpeedBtn.MouseButton1Click:Connect(function()
+    speedSettings.WalkSpeed = tonumber(walkSpeedBox.Text) or 16
+    walkSpeedLabel.Text = "Walkspeed Power: " .. speedSettings.WalkSpeed
+end)
+local function wsm(player, deltaTime)
+    local character = player.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if humanoid and rootPart then
+        local VS = humanoid.MoveDirection * speedSettings.WalkSpeed
+        if selectedWalkMethod == "Velocity" then
+            rootPart.Velocity = Vector3.new(VS.X, rootPart.Velocity.Y, VS.Z)
+        elseif selectedWalkMethod == "Vector" then
+            local scaleFactor = 0.0001
+            rootPart.CFrame = rootPart.CFrame + (VS * deltaTime * scaleFactor)
+        elseif selectedWalkMethod == "CFrame" then
+            local scaleFactor = 0.0001
+            rootPart.CFrame = rootPart.CFrame + (humanoid.MoveDirection * speedSettings.WalkSpeed * deltaTime * scaleFactor)
+        else
+            humanoid.WalkSpeed = speedSettings.WalkSpeed
+        end
+    end
+end
+game:GetService("RunService").Stepped:Connect(function(deltaTime)
+    if isWalkSpeedEnabled then
+        local player = game:GetService("Players").LocalPlayer
+        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            wsm(player, deltaTime)
+        end
+    end
+end)
+-- Jump
+local IJ = false
+local infJumpBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 190), Size = UDim2.new(0, 200, 0, 28), Text = "Infinite Jump: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = infJumpBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(infJumpBtn)
+infJumpBtn.MouseButton1Click:Connect(function()
+    IJ = not IJ
+    infJumpBtn.Text = "Infinite Jump: " .. (IJ and "On" or "Off")
+    game:GetService("UserInputService").JumpRequest:Connect(function()
+        if IJ then
+            game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
+        end
+    end)
+end)
+local isJumpPowerEnabled = false
+local jumpToggleBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 190), Size = UDim2.new(0, 200, 0, 28), Text = "Custom JumpPower: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = jumpToggleBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(jumpToggleBtn)
+jumpToggleBtn.MouseButton1Click:Connect(function()
+    isJumpPowerEnabled = not isJumpPowerEnabled
+    jumpToggleBtn.Text = "Custom JumpPower: " .. (isJumpPowerEnabled and "On" or "Off")
+end)
+local jumpMethodLabel = create("TextLabel", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 220), Size = UDim2.new(0, 200, 0, 20), Text = "Jump Method: Velocity", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local jumpMethodBox = create("TextBox", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 218), Size = UDim2.new(0, 120, 0, 24), Text = "Velocity", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = jumpMethodBox, CornerRadius = UDim.new(0, 6)})
+local applyJumpMethodBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 360, 0, 218), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyJumpMethodBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyJumpMethodBtn)
+applyJumpMethodBtn.MouseButton1Click:Connect(function()
+    selectedJumpMethod = jumpMethodBox.Text or "Velocity"
+    jumpMethodLabel.Text = "Jump Method: " .. selectedJumpMethod
+end)
+local jumpPowerLabel = create("TextLabel", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 250), Size = UDim2.new(0, 200, 0, 20), Text = "JumpPower: 30", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local jumpPowerBox = create("TextBox", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 248), Size = UDim2.new(0, 120, 0, 24), Text = "30", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = jumpPowerBox, CornerRadius = UDim.new(0, 6)})
+local applyJumpPowerBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 360, 0, 248), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyJumpPowerBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyJumpPowerBtn)
+applyJumpPowerBtn.MouseButton1Click:Connect(function()
+    local value = tonumber(jumpPowerBox.Text) or 30
+    jumpPowerLabel.Text = "JumpPower: " .. value
+    local player = game:GetService("Players").LocalPlayer
+    local humanoid = player.Character:WaitForChild("Humanoid")
+    humanoid.UseJumpPower = true
+    humanoid.Jumping:Connect(function(isActive)
+        if isJumpPowerEnabled and isActive then
+            local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                if selectedJumpMethod == "Velocity" then
+                    rootPart.Velocity = rootPart.Velocity * Vector3.new(1, 0, 1) + Vector3.new(0, value, 0)
+                elseif selectedJumpMethod == "Vector" then
+                    rootPart.Velocity = Vector3.new(0, value, 0)
+                elseif selectedJumpMethod == "CFrame" then
+                    player.Character:SetPrimaryPartCFrame(player.Character:GetPrimaryPartCFrame() + Vector3.new(0, value, 0))
+                end
+            end
+        end
+    end)
+end)
+-- Anti Aim
+local spinSpeed = 10
+local gyro
+local antiAimBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 280), Size = UDim2.new(0, 200, 0, 28), Text = "Anti-Aim v1: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = antiAimBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(antiAimBtn)
+antiAimBtn.MouseButton1Click:Connect(function()
+    local value = not (gyro ~= nil)
+    antiAimBtn.Text = "Anti-Aim v1: " .. (value and "On" or "Off")
+    local character = game.Players.LocalPlayer.Character
+    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if value then
+        game:GetService("Players").LocalPlayer.PlayerGui.GUI.Client.Variables.thirdperson.Value = true
+        if humanoidRootPart then
+            local spin = Instance.new("BodyAngularVelocity")
+            spin.Name = "AntiAimSpin"
+            spin.AngularVelocity = Vector3.new(0, spinSpeed, 0)
+            spin.MaxTorque = Vector3.new(0, math.huge, 0)
+            spin.P = 500000
+            spin.Parent = humanoidRootPart
+            gyro = Instance.new("BodyGyro")
+            gyro.Name = "AntiAimGyro"
+            gyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            gyro.CFrame = humanoidRootPart.CFrame
+            gyro.P = 3000
+            gyro.Parent = humanoidRootPart
+        end
+    else
+        game:GetService("Players").LocalPlayer.PlayerGui.GUI.Client.Variables.thirdperson.Value = false
+        if humanoidRootPart then
+            local spin = humanoidRootPart:FindFirstChild("AntiAimSpin")
+            if spin then
+                spin:Destroy()
+            end
+            if gyro then
+                gyro:Destroy()
+                gyro = nil
+            end
+        end
+    end
+end)
+local spinSpeedLabel = create("TextLabel", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 310), Size = UDim2.new(0, 200, 0, 20), Text = "Spin Speed: 10", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local spinSpeedBox = create("TextBox", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 308), Size = UDim2.new(0, 120, 0, 24), Text = "10", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = spinSpeedBox, CornerRadius = UDim.new(0, 6)})
+local applySpinSpeedBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 360, 0, 308), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applySpinSpeedBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applySpinSpeedBtn)
+applySpinSpeedBtn.MouseButton1Click:Connect(function()
+    spinSpeed = tonumber(spinSpeedBox.Text) or 10
+    spinSpeedLabel.Text = "Spin Speed: " .. spinSpeed
+    local character = game.Players.LocalPlayer.Character
+    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        local spin = humanoidRootPart:FindFirstChild("AntiAimSpin")
+        if spin then
+            spin.AngularVelocity = Vector3.new(0, spinSpeed, 0)
+        end
+    end
+end)
+-- Object Teleport
+local autoHealEnabled = false
+local autoHealBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 340), Size = UDim2.new(0, 200, 0, 28), Text = "DeadHP (AutoHeal): Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = autoHealBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(autoHealBtn)
+autoHealBtn.MouseButton1Click:Connect(function()
+    autoHealEnabled = not autoHealEnabled
+    autoHealBtn.Text = "DeadHP (AutoHeal): " .. (autoHealEnabled and "On" or "Off")
+    managePickups()
+end)
+local autoAmmoEnabled = false
+local autoAmmoBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 340), Size = UDim2.new(0, 200, 0, 28), Text = "DeadAmmo (Inf-Ammo): Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = autoAmmoBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(autoAmmoBtn)
+autoAmmoBtn.MouseButton1Click:Connect(function()
+    autoAmmoEnabled = not autoAmmoEnabled
+    autoAmmoBtn.Text = "DeadAmmo (Inf-Ammo): " .. (autoAmmoEnabled and "On" or "Off")
+    managePickups()
+end)
+function managePickups()
+    if autoHealEnabled or autoAmmoEnabled then
+        spawn(function()
+            while autoHealEnabled or autoAmmoEnabled do
+                wait()
+                pcall(function()
+                    local player = game.Players.LocalPlayer
+                    local character = player.Character
+                    if character then
+                        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                        if humanoidRootPart then
+                            for _, v in pairs(game.Workspace.Debris:GetChildren()) do
+                                if (autoHealEnabled and v.Name == "DeadHP") or (autoAmmoEnabled and v.Name == "DeadAmmo") then
+                                    v.CFrame = humanoidRootPart.CFrame
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+    end
+end
+-- Useful Cheat
+local timeScaleLabel = create("TextLabel", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 370), Size = UDim2.new(0, 200, 0, 20), Text = "TimeScale", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local timeScaleBox = create("TextBox", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 368), Size = UDim2.new(0, 120, 0, 24), Text = "", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = timeScaleBox, CornerRadius = UDim.new(0, 6)})
+local applyTimeScaleBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 360, 0, 368), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyTimeScaleBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyTimeScaleBtn)
+applyTimeScaleBtn.MouseButton1Click:Connect(function()
+    local TimeScaleFR = tonumber(timeScaleBox.Text) or 1
+    game:GetService("ReplicatedStorage").wkspc.TimeScale.Value = TimeScaleFR
+end)
+-- Misc
+local fovLabel = create("TextLabel", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 400), Size = UDim2.new(0, 200, 0, 20), Text = "FOV Arsenal: 70", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local fovBox = create("TextBox", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 398), Size = UDim2.new(0, 120, 0, 24), Text = "70", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = fovBox, CornerRadius = UDim.new(0, 6)})
+local applyFovBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 360, 0, 398), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyFovBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyFovBtn)
+applyFovBtn.MouseButton1Click:Connect(function()
+    local num = tonumber(fovBox.Text) or 70
+    game:GetService("Players").LocalPlayer.Settings.FOV.Value = num
+    fovLabel.Text = "FOV Arsenal: " .. num
+end)
+local isNoClipEnabled = false
+local noClipBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 12, 0, 430), Size = UDim2.new(0, 200, 0, 28), Text = "NoClip: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = noClipBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(noClipBtn)
+noClipBtn.MouseButton1Click:Connect(function()
+    isNoClipEnabled = not isNoClipEnabled
+    noClipBtn.Text = "NoClip: " .. (isNoClipEnabled and "On" or "Off")
+    local player = game.Players.LocalPlayer
+    local function toggleNoClip()
+        while isNoClipEnabled do
+            local character = player.Character
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+            game:GetService("RunService").Stepped:Wait()
+        end
+        local character = player.Character
+        if character then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+    if isNoClipEnabled then
+        spawn(toggleNoClip)
+    end
+end)
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    if isNoClipEnabled then
+        spawn(function()
+            while isNoClipEnabled do
+                if character then
+                    for _, part in pairs(character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+                game:GetService("RunService").Stepped:Wait()
+            end
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end)
+    end
+end)
+local xrayOn = false
+local xrayBtn = create("TextButton", {Parent = playerPanel, Position = UDim2.new(0, 220, 0, 430), Size = UDim2.new(0, 200, 0, 28), Text = "Xray: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = xrayBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(xrayBtn)
+xrayBtn.MouseButton1Click:Connect(function()
+    xrayOn = not xrayOn
+    xrayBtn.Text = "Xray: " .. (xrayOn and "On" or "Off")
+    if xrayOn then
+        for _, descendant in pairs(workspace:GetDescendants()) do
+          if descendant:IsA("BasePart") then
+            if not descendant:FindFirstChild("OriginalTransparency") then
+              local originalTransparency = Instance.new("NumberValue")
+              originalTransparency.Name = "OriginalTransparency"
+              originalTransparency.Value = descendant.Transparency
+              originalTransparency.Parent = descendant
+            end
+            descendant.Transparency = 0.5
+          end
+        end
+    else
+        for _, descendant in pairs(workspace:GetDescendants()) do
+          if descendant:IsA("BasePart") then
+            if descendant:FindFirstChild("OriginalTransparency") then
+              descendant.Transparency = descendant.OriginalTransparency.Value
+              descendant.OriginalTransparency:Destroy()
+            end
+          end
+        end
+    end
+end)
+end
+do -- Skins Tab features
+local skinsPanel = panel(homeScroll, "Color Skins", 400)
+local function ak(al)
+  return Vector3.new(al.R, al.G, al.B)
+end
+local am = "Plastic"
+local armMaterialLabel = create("TextLabel", {Parent = skinsPanel, Position = UDim2.new(0, 12, 0, 36), Size = UDim2.new(0, 200, 0, 20), Text = "Arm Material: Plastic", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local armMaterialBox = create("TextBox", {Parent = skinsPanel, Position = UDim2.new(0, 220, 0, 34), Size = UDim2.new(0, 120, 0, 24), Text = "Plastic", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = armMaterialBox, CornerRadius = UDim.new(0, 6)})
+local applyArmMaterialBtn = create("TextButton", {Parent = skinsPanel, Position = UDim2.new(0, 360, 0, 34), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyArmMaterialBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyArmMaterialBtn)
+applyArmMaterialBtn.MouseButton1Click:Connect(function()
+    am = armMaterialBox.Text or "Plastic"
+    armMaterialLabel.Text = "Arm Material: " .. am
+end)
+local ao = Color3.new(0.196078, 0.196078, 0.196078)
+local armColorLabel = create("TextLabel", {Parent = skinsPanel, Position = UDim2.new(0, 12, 0, 70), Size = UDim2.new(0, 200, 0, 20), Text = "Arm Color", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local armColorBox = create("TextBox", {Parent = skinsPanel, Position = UDim2.new(0, 220, 0, 68), Size = UDim2.new(0, 120, 0, 24), Text = "50,50,50", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = armColorBox, CornerRadius = UDim.new(0, 6)})
+local applyArmColorBtn = create("TextButton", {Parent = skinsPanel, Position = UDim2.new(0, 360, 0, 68), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyArmColorBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyArmColorBtn)
+applyArmColorBtn.MouseButton1Click:Connect(function()
+    local rgb = armColorBox.Text:match("(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
+    if rgb then
+        ao = Color3.fromRGB(tonumber(rgb:match("(%d+)")), tonumber(rgb:match(",(%d+)")), tonumber(rgb:match(",%d+,(%d+)")))
+    end
+end)
+local aq = false
+local armCharmsBtn = create("TextButton", {Parent = skinsPanel, Position = UDim2.new(0, 12, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "Arm Charms: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = armCharmsBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(armCharmsBtn)
+armCharmsBtn.MouseButton1Click:Connect(function()
+    aq = not aq
+    armCharmsBtn.Text = "Arm Charms: " .. (aq and "On" or "Off")
+    if aq then
+        spawn(function()
+            while true do
+                wait(.01)
+                if not aq then
+                    break
+                else
+                    local cameraArms = workspace.Camera:FindFirstChild("Arms")
+                    if cameraArms then
+                        for ar, O in pairs(cameraArms:GetDescendants()) do
+                            if O.Name == 'Right Arm' or O.Name == 'Left Arm' then
+                                if O:IsA("BasePart") then
+                                    O.Material = Enum.Material[am]
+                                    O.Color = ao
+                                end
+                            elseif O:IsA("SpecialMesh") then
+                                if O.TextureId == '' then
+                                    O.TextureId = 'rbxassetid://0'
+                                    O.VertexColor = ak(ao)
+                                end
+                            elseif O.Name == 'L' or O.Name == 'R' then
+                                O:Destroy()
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+local at = "Plastic"
+local gunMaterialLabel = create("TextLabel", {Parent = skinsPanel, Position = UDim2.new(0, 12, 0, 130), Size = UDim2.new(0, 200, 0, 20), Text = "Gun Material: Plastic", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local gunMaterialBox = create("TextBox", {Parent = skinsPanel, Position = UDim2.new(0, 220, 0, 128), Size = UDim2.new(0, 120, 0, 24), Text = "Plastic", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = gunMaterialBox, CornerRadius = UDim.new(0, 6)})
+local applyGunMaterialBtn = create("TextButton", {Parent = skinsPanel, Position = UDim2.new(0, 360, 0, 128), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyGunMaterialBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyGunMaterialBtn)
+applyGunMaterialBtn.MouseButton1Click:Connect(function()
+    at = gunMaterialBox.Text or "Plastic"
+    gunMaterialLabel.Text = "Gun Material: " .. at
+end)
+local au = Color3.new(0.196078, 0.196078, 0.196078)
+local gunColorLabel = create("TextLabel", {Parent = skinsPanel, Position = UDim2.new(0, 12, 0, 160), Size = UDim2.new(0, 200, 0, 20), Text = "Gun Color", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local gunColorBox = create("TextBox", {Parent = skinsPanel, Position = UDim2.new(0, 220, 0, 158), Size = UDim2.new(0, 120, 0, 24), Text = "50,50,50", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = gunColorBox, CornerRadius = UDim.new(0, 6)})
+local applyGunColorBtn = create("TextButton", {Parent = skinsPanel, Position = UDim2.new(0, 360, 0, 158), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyGunColorBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyGunColorBtn)
+applyGunColorBtn.MouseButton1Click:Connect(function()
+    local rgb = gunColorBox.Text:match("(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
+    if rgb then
+        au = Color3.fromRGB(tonumber(rgb:match("(%d+)")), tonumber(rgb:match(",(%d+)")), tonumber(rgb:match(",%d+,(%d+)")))
+    end
+end)
+local av = false
+local gunCharmsBtn = create("TextButton", {Parent = skinsPanel, Position = UDim2.new(0, 12, 0, 190), Size = UDim2.new(0, 200, 0, 28), Text = "Gun Charms: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = gunCharmsBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(gunCharmsBtn)
+gunCharmsBtn.MouseButton1Click:Connect(function()
+    av = not av
+    gunCharmsBtn.Text = "Gun Charms: " .. (av and "On" or "Off")
+    if av then
+        spawn(function()
+            while true do wait(.01)
+                if not av then
+                    break
+                else
+                    if not workspace.Camera:FindFirstChild("Arms") then
+                        wait()
+                    else
+                        for ar, O in pairs(workspace.Camera.Arms:GetDescendants()) do
+                            if O:IsA("MeshPart") then
+                                O.Material = Enum.Material[at]
+                                O.Color = au
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+local rainbowEnabled1 = false
+local c1 = 1
+local rainbowGun1Btn = create("TextButton", {Parent = skinsPanel, Position = UDim2.new(0, 12, 0, 220), Size = UDim2.new(0, 200, 0, 28), Text = "Rainbow Gun v1: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = rainbowGun1Btn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(rainbowGun1Btn)
+rainbowGun1Btn.MouseButton1Click:Connect(function()
+    rainbowEnabled1 = not rainbowEnabled1
+    rainbowGun1Btn.Text = "Rainbow Gun v1: " .. (rainbowEnabled1 and "On" or "Off")
+end)
+function zigzag(X)
+  return math.acos(math.cos(X * math.pi)) / math.pi
+end
+game:GetService("RunService").RenderStepped:Connect(function()
+  if game.Workspace.Camera:FindFirstChild('Arms') and rainbowEnabled1 then
+    for i, v in pairs(game.Workspace.Camera.Arms:GetDescendants()) do
+      if v.ClassName == 'MeshPart' then
+        v.Color = Color3.fromHSV(zigzag(c1), 1, 1)
+        c1 = c1 + .0001
+      end
+    end
+  end
+end)
+local rainbowEnabled2 = false
+local c2 = 0
+local hueIncrement = 0.1
+local rainbowGun2Btn = create("TextButton", {Parent = skinsPanel, Position = UDim2.new(0, 220, 0, 220), Size = UDim2.new(0, 200, 0, 28), Text = "Rainbow Gun v2: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = rainbowGun2Btn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(rainbowGun2Btn)
+rainbowGun2Btn.MouseButton1Click:Connect(function()
+    rainbowEnabled2 = not rainbowEnabled2
+    rainbowGun2Btn.Text = "Rainbow Gun v2: " .. (rainbowEnabled2 and "On" or "Off")
+end)
+function updateColors2()
+  for i, v in pairs(game.Workspace.Camera.Arms:GetDescendants()) do
+    if v.ClassName == 'MeshPart' then
+      v.Color = Color3.fromHSV(c2, 1, 1)
+    end
+  end
+end
+game:GetService("RunService").RenderStepped:Connect(function()
+  if game.Workspace.Camera:FindFirstChild('Arms') and rainbowEnabled2 then
+    c2 = c2 + hueIncrement
+    if c2 >= 1 then
+      c2 = c2 % 1 -- [0, 1] range
+    end
+    updateColors2()
+  end
+end)
+end
+do -- Extra Tab features
+local extraPanel = panel(homeScroll, "Extra", 300)
+local function enableParticles()
+    for i, v in pairs(game:GetDescendants()) do
+      if v:IsA("ParticleEmitter") then
+        v.Parent = game.Players.LocalPlayer.Character["Particle Area"]
+      end
+    end
+end
+local function disableParticles()
+    for i, v in pairs(game:GetDescendants()) do
+      if v:IsA("ParticleEmitter") then
+        v.Parent = workspace
+      end
+    end
+end
+local particlesToggle = false
+local particlesBtn = create("TextButton", {Parent = extraPanel, Position = UDim2.new(0, 12, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Mess up screen: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = particlesBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(particlesBtn)
+particlesBtn.MouseButton1Click:Connect(function()
+    particlesToggle = not particlesToggle
+    particlesBtn.Text = "Mess up screen: " .. (particlesToggle and "On" or "Off")
+    if particlesToggle then
+        enableParticles()
+    else
+        disableParticles()
+    end
+end)
+local isChad = false
+local isChadBtn = create("TextButton", {Parent = extraPanel, Position = UDim2.new(0, 12, 0, 70), Size = UDim2.new(0, 200, 0, 28), Text = "IsChad: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = isChadBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(isChadBtn)
+isChadBtn.MouseButton1Click:Connect(function()
+    isChad = not isChad
+    isChadBtn.Text = "IsChad: " .. (isChad and "On" or "Off")
+    if game.Players.LocalPlayer:FindFirstChild('IsChad') then
+        game.Players.LocalPlayer.IsChad:Destroy()
+    end
+    if isChad then
+        local IsMod = Instance.new('IntValue', game.Players.LocalPlayer)
+        IsMod.Name = "IsChad"
+    end
+end)
+local vip = false
+local vipBtn = create("TextButton", {Parent = extraPanel, Position = UDim2.new(0, 220, 0, 70), Size = UDim2.new(0, 200, 0, 28), Text = "VIP: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = vipBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(vipBtn)
+vipBtn.MouseButton1Click:Connect(function()
+    vip = not vip
+    vipBtn.Text = "VIP: " .. (vip and "On" or "Off")
+    if game.Players.LocalPlayer:FindFirstChild('VIP') then
+        game.Players.LocalPlayer.VIP:Destroy()
+    end
+    if vip then
+        local IsMod = Instance.new('IntValue', game.Players.LocalPlayer)
+        IsMod.Name = "VIP"
+    end
+end)
+local oldVip = false
+local oldVipBtn = create("TextButton", {Parent = extraPanel, Position = UDim2.new(0, 12, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "OldVIP: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = oldVipBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(oldVipBtn)
+oldVipBtn.MouseButton1Click:Connect(function()
+    oldVip = not oldVip
+    oldVipBtn.Text = "OldVIP: " .. (oldVip and "On" or "Off")
+    if game.Players.LocalPlayer:FindFirstChild('OldVIP') then
+        game.Players.LocalPlayer.OldVIP:Destroy()
+    end
+    if oldVip then
+        local IsMod = Instance.new('IntValue', game.Players.LocalPlayer)
+        IsMod.Name = "OldVIP"
+    end
+end)
+local romin = false
+local rominBtn = create("TextButton", {Parent = extraPanel, Position = UDim2.new(0, 220, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "Romin: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = rominBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(rominBtn)
+rominBtn.MouseButton1Click:Connect(function()
+    romin = not romin
+    rominBtn.Text = "Romin: " .. (romin and "On" or "Off")
+    if game.Players.LocalPlayer:FindFirstChild('Romin') then
+        game.Players.LocalPlayer.Romin:Destroy()
+    end
+    if romin then
+        local IsAdmin = Instance.new('IntValue', game.Players.LocalPlayer)
+        IsAdmin.Name = "Romin"
+    end
+end)
+local isAdmin = false
+local isAdminBtn = create("TextButton", {Parent = extraPanel, Position = UDim2.new(0, 12, 0, 130), Size = UDim2.new(0, 200, 0, 28), Text = "IsAdmin: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = isAdminBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(isAdminBtn)
+isAdminBtn.MouseButton1Click:Connect(function()
+    isAdmin = not isAdmin
+    isAdminBtn.Text = "IsAdmin: " .. (isAdmin and "On" or "Off")
+    if game.Players.LocalPlayer:FindFirstChild('IsAdmin') then
+        game.Players.LocalPlayer.IsAdmin:Destroy()
+    end
+    if isAdmin then
+        local IsAdmin = Instance.new('IntValue', game.Players.LocalPlayer)
+        IsAdmin.Name = "IsAdmin"
+    end
+end)
+end
+do -- Visuals Tab features
+local visualsPanel = panel(homeScroll, "Visuals", 300)
+local aj = loadstring(game:HttpGet("https://rawscript.vercel.app/api/raw/esp_1"))()
+local espToggleBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 12, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Enable Esp: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = espToggleBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(espToggleBtn)
+espToggleBtn.MouseButton1Click:Connect(function()
+    local K = not aj.Players
+    espToggleBtn.Text = "Enable Esp: " .. (K and "On" or "Off")
+    aj:Toggle(K)
+    aj.Players = K
+end)
+local tracersBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 220, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Tracers Esp: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = tracersBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(tracersBtn)
+tracersBtn.MouseButton1Click:Connect(function()
+    local K = not aj.Tracers
+    tracersBtn.Text = "Tracers Esp: " .. (K and "On" or "Off")
+    aj.Tracers = K
+end)
+local namesBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 12, 0, 70), Size = UDim2.new(0, 200, 0, 28), Text = "Name Esp: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = namesBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(namesBtn)
+namesBtn.MouseButton1Click:Connect(function()
+    local K = not aj.Names
+    namesBtn.Text = "Name Esp: " .. (K and "On" or "Off")
+    aj.Names = K
+end)
+local boxesBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 220, 0, 70), Size = UDim2.new(0, 200, 0, 28), Text = "Boxes Esp: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = boxesBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(boxesBtn)
+boxesBtn.MouseButton1Click:Connect(function()
+    local K = not aj.Boxes
+    boxesBtn.Text = "Boxes Esp: " .. (K and "On" or "Off")
+    aj.Boxes = K
+end)
+local teamColorBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 12, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "Team Coordinate: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = teamColorBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(teamColorBtn)
+teamColorBtn.MouseButton1Click:Connect(function()
+    local L = not aj.TeamColor
+    teamColorBtn.Text = "Team Coordinate: " .. (L and "On" or "Off")
+    aj.TeamColor = L
+end)
+local teamMatesBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 220, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "Teammates: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = teamMatesBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(teamMatesBtn)
+teamMatesBtn.MouseButton1Click:Connect(function()
+    local L = not aj.TeamMates
+    teamMatesBtn.Text = "Teammates: " .. (L and "On" or "Off")
+    aj.TeamMates = L
+end)
+local espColorLabel = create("TextLabel", {Parent = visualsPanel, Position = UDim2.new(0, 12, 0, 130), Size = UDim2.new(0, 200, 0, 20), Text = "ESP Color", BackgroundTransparency = 1, TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+local espColorBox = create("TextBox", {Parent = visualsPanel, Position = UDim2.new(0, 220, 0, 128), Size = UDim2.new(0, 120, 0, 24), Text = "255,255,255", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(10,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 13})
+create("UICorner", {Parent = espColorBox, CornerRadius = UDim.new(0, 6)})
+local applyEspColorBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 360, 0, 128), Size = UDim2.new(0, 80, 0, 24), Text = "Apply", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = applyEspColorBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(applyEspColorBtn)
+applyEspColorBtn.MouseButton1Click:Connect(function()
+    local rgb = espColorBox.Text:match("(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
+    if rgb then
+        aj.Color = Color3.fromRGB(tonumber(rgb:match("(%d+)")), tonumber(rgb:match(",(%d+)")), tonumber(rgb:match(",%d+,(%d+)")))
+    end
+end)
+-- Random ESP
+local esp_data = {}
+local espTilesName = 'dontfuckingask'
+local function createESP(parent, label)
+    local BillboardGui = Instance.new('BillboardGui')
+    local TextLabel = Instance.new('TextLabel')
+    BillboardGui.Name = espTilesName
+    BillboardGui.Parent = parent
+    BillboardGui.AlwaysOnTop = true
+    BillboardGui.Size = UDim2.new(0, 50, 0, 50)
+    BillboardGui.StudsOffset = Vector3.new(0, 2, 0)
+    TextLabel.Parent = BillboardGui
+    TextLabel.BackgroundColor3 = Color3.new(1, 1, 1)
+    TextLabel.BackgroundTransparency = 1
+    TextLabel.Size = UDim2.new(1, 0, 1, 0)
+    TextLabel.Text = label
+    TextLabel.TextColor3 = Color3.new(1, 0, 0)
+    TextLabel.TextScaled = false
+    return BillboardGui
+end
+local function applyESP(object, label)
+    if object:IsA('TouchTransmitter') then
+        local parent = object.Parent
+        if not parent:FindFirstChild(espTilesName) then
+            local newESP = createESP(parent, label)
+            esp_data[parent] = newESP
+        end
+    end
+end
+local function toggleESP(enable, name, label)
+    if enable then
+        for _, v in ipairs(game.Workspace:GetDescendants()) do
+            if v:IsA('TouchTransmitter') and v.Parent.Name == name then
+                applyESP(v, label)
+            end
+        end
+        game.Workspace.DescendantAdded:Connect(function(descendant)
+            if descendant:IsA('TouchTransmitter') and descendant.Parent.Name == name then
+                applyESP(descendant, label)
+            end
+        end)
+    else
+        for parent, espElement in pairs(esp_data) do
+            if parent and espElement then
+                espElement:Destroy()
+                esp_data[parent] = nil
+            end
+        end
+    end
+end
+local ammoBoxEsp = false
+local ammoBoxEspBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 12, 0, 160), Size = UDim2.new(0, 200, 0, 28), Text = "Ammo Box ESP: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = ammoBoxEspBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(ammoBoxEspBtn)
+ammoBoxEspBtn.MouseButton1Click:Connect(function()
+    ammoBoxEsp = not ammoBoxEsp
+    ammoBoxEspBtn.Text = "Ammo Box ESP: " .. (ammoBoxEsp and "On" or "Off")
+    toggleESP(ammoBoxEsp, 'DeadAmmo', 'Ammo Box')
+end)
+local hpJugEsp = false
+local hpJugEspBtn = create("TextButton", {Parent = visualsPanel, Position = UDim2.new(0, 220, 0, 160), Size = UDim2.new(0, 200, 0, 28), Text = "HP Jug ESP: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = hpJugEspBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(hpJugEspBtn)
+hpJugEspBtn.MouseButton1Click:Connect(function()
+    hpJugEsp = not hpJugEsp
+    hpJugEspBtn.Text = "HP Jug ESP: " .. (hpJugEsp and "On" or "Off")
+    toggleESP(hpJugEsp, 'DeadHP', 'HP Jar')
+end)
+end
+do -- Setting Tab features
+local settingPanel = panel(homeScroll, "Setting", 500)
+local originalMaterials = {}
+local originalDecalsTextures = {}
+local originalLightingSettings = {
+    GlobalShadows = game.Lighting.GlobalShadows,
+    FogEnd = game.Lighting.FogEnd,
+    Brightness = game.Lighting.Brightness
+}
+local originalTerrainSettings = {
+    WaterWaveSize = game.Workspace.Terrain.WaterWaveSize,
+    WaterWaveSpeed = game.Workspace.Terrain.WaterWaveSpeed,
+    WaterReflectance = game.Workspace.Terrain.WaterReflectance,
+    WaterTransparency = game.Workspace.Terrain.WaterTransparency
+}
+local originalEffects = {}
+local antiLag = false
+local antiLagBtn = create("TextButton", {Parent = settingPanel, Position = UDim2.new(0, 12, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "Anti Lag: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = antiLagBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(antiLagBtn)
+antiLagBtn.MouseButton1Click:Connect(function()
+    antiLag = not antiLag
+    antiLagBtn.Text = "Anti Lag: " .. (antiLag and "On" or "Off")
+    if antiLag then
+        for ai, O in pairs(game:GetService("Workspace"):GetDescendants()) do
+            if O:IsA("BasePart") and not O.Parent:FindFirstChild("Humanoid") then
+                originalMaterials[O] = O.Material
+                O.Material = Enum.Material.SmoothPlastic
+                if O:IsA("Texture") then
+                    table.insert(originalDecalsTextures, O)
+                    O:Destroy()
+                end
+            end
+        end
+    else
+        for O, material in pairs(originalMaterials) do
+            if O and O:IsA("BasePart") then
+                O.Material = material
+            end
+        end
+        originalMaterials = {}
+    end
+end)
+local fpsBoost = false
+local fpsBoostBtn = create("TextButton", {Parent = settingPanel, Position = UDim2.new(0, 220, 0, 36), Size = UDim2.new(0, 200, 0, 28), Text = "FPS Boost: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = fpsBoostBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(fpsBoostBtn)
+fpsBoostBtn.MouseButton1Click:Connect(function()
+    fpsBoost = not fpsBoost
+    fpsBoostBtn.Text = "FPS Boost: " .. (fpsBoost and "On" or "Off")
+    if fpsBoost then
+        local g = game
+        local w = g.Workspace
+        local l = g.Lighting
+        local t = w.Terrain
+        originalTerrainSettings.WaterWaveSize = t.WaterWaveSize
+        originalTerrainSettings.WaterWaveSpeed = t.WaterWaveSpeed
+        originalTerrainSettings.WaterReflectance = t.WaterReflectance
+        originalTerrainSettings.WaterTransparency = t.WaterTransparency
+        t.WaterWaveSize = 0
+        t.WaterWaveSpeed = 0
+        t.WaterReflectance = 0
+        t.WaterTransparency = 0
+        l.GlobalShadows = false
+        l.FogEnd = 9e9
+        l.Brightness = 0
+        settings().Rendering.QualityLevel = "Level01"
+        for i, v in pairs(g:GetDescendants()) do
+            if v:IsA("Part") or v:IsA("Union") or v:IsA("CornerWedgePart") or v:IsA("TrussPart") then
+                originalMaterials[v] = v.Material
+                v.Material = "Plastic"
+                v.Reflectance = 0
+            elseif v:IsA("Decal") or v:IsA("Texture") then
+                table.insert(originalDecalsTextures, v)
+                v.Transparency = 1
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                v.Lifetime = NumberRange.new(0)
+            elseif v:IsA("Explosion") then
+                v.BlastPressure = 1
+                v.BlastRadius = 1
+            elseif v:IsA("Fire") or v:IsA("SpotLight") or v:IsA("Smoke") then
+                v.Enabled = false
+            elseif v:IsA("MeshPart") then
+                originalMaterials[v] = v.Material
+                v.Material = "Plastic"
+                v.Reflectance = 0
+                v.TextureID = 10385902758728957
+            end
+        end
+        for i, e in pairs(l:GetChildren()) do
+            if e:IsA("BlurEffect") or e:IsA("SunRaysEffect") or e:IsA("ColorCorrectionEffect") or e:IsA("BloomEffect") or e:IsA("DepthOfFieldEffect") then
+                originalEffects[e] = e.Enabled
+                e.Enabled = false
+            end
+        end
+    else
+        local t = game.Workspace.Terrain
+        t.WaterWaveSize = originalTerrainSettings.WaterWaveSize
+        t.WaterWaveSpeed = originalTerrainSettings.WaterWaveSpeed
+        t.WaterReflectance = originalTerrainSettings.WaterReflectance
+        t.WaterTransparency = originalTerrainSettings.WaterTransparency
+        game.Lighting.GlobalShadows = originalLightingSettings.GlobalShadows
+        game.Lighting.FogEnd = originalLightingSettings.FogEnd
+        game.Lighting.Brightness = originalLightingSettings.Brightness
+        settings().Rendering.QualityLevel = "Automatic"
+        for v, material in pairs(originalMaterials) do
+            if v and v:IsA("BasePart") then
+                v.Material = material
+                v.Reflectance = 0
+            end
+        end
+        originalMaterials = {}
+        for e, enabled in pairs(originalEffects) do
+            if e then
+                e.Enabled = enabled
+            end
+        end
+        originalEffects = {}
+        for _, v in pairs(originalDecalsTextures) do
+            if v and v.Parent then
+                v.Transparency = 0
+            end
+        end
+        originalDecalsTextures = {}
+    end
+end)
+local fullBrightEnabled = false
+local fullBrightBtn = create("TextButton", {Parent = settingPanel, Position = UDim2.new(0, 12, 0, 70), Size = UDim2.new(0, 200, 0, 28), Text = "Full Bright: Off", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = fullBrightBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(fullBrightBtn)
+fullBrightBtn.MouseButton1Click:Connect(function()
+    fullBrightEnabled = not fullBrightEnabled
+    fullBrightBtn.Text = "Full Bright: " .. (fullBrightEnabled and "On" or "Off")
+    local Light = game:GetService("Lighting")
+    local function doFullBright()
+        if fullBrightEnabled then
+            Light.Ambient = Color3.new(1, 1, 1)
+            Light.ColorShift_Bottom = Color3.new(1, 1, 1)
+            Light.ColorShift_Top = Color3.new(1, 1, 1)
+        else
+            Light.Ambient = Color3.new(0.5, 0.5, 0.5)
+            Light.ColorShift_Bottom = Color3.new(0, 0, 0)
+            Light.ColorShift_Top = Color3.new(0, 0, 0)
+        end
+    end
+    doFullBright()
+    Light.LightingChanged:Connect(doFullBright)
+end)
+local serverHopBtn = create("TextButton", {Parent = settingPanel, Position = UDim2.new(0, 12, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "Server Hop", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = serverHopBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(serverHopBtn)
+serverHopBtn.MouseButton1Click:Connect(function()
+    local placeID = game.PlaceId
+    local allIDs = {}
+    local foundAnything = ""
+    local actualHour = os.date("!*t").hour
+    local deleted = false
+    local file = pcall(function()
+        allIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
+    end)
+    if not file then
+        table.insert(allIDs, actualHour)
+        writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(allIDs))
+    end
+    function teleportReturner()
+        local site
+        if foundAnything == "" then
+          site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' ..
+            placeID .. '/servers/Public?sortOrder=Asc&limit=100'))
+        else
+          site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' ..
+            placeID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+        end
+        local serverID = ""
+        if site.nextPageCursor and site.nextPageCursor ~= "null" and site.nextPageCursor ~= nil then
+          foundAnything = site.nextPageCursor
+        end
+        local num = 0
+        for i, v in pairs(site.data) do
+          local possible = true
+          serverID = tostring(v.id)
+          if tonumber(v.maxPlayers) > tonumber(v.playing) then
+            for _, existing in pairs(allIDs) do
+              if num ~= 0 then
+                if serverID == tostring(existing) then
+                  possible = false
+                end
+              else
+                if tonumber(actualHour) ~= tonumber(existing) then
+                  local delFile = pcall(function()
+                    delfile("NotSameServers.json")
+                    allIDs = {}
+                    table.insert(allIDs, actualHour)
+                  end)
+                end
+              end
+              num = num + 1
+            end
+            if possible == true then
+              table.insert(allIDs, serverID)
+              wait()
+              pcall(function()
+                writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(allIDs))
+                wait()
+                game:GetService("TeleportService"):TeleportToPlaceInstance(placeID, serverID, game.Players.LocalPlayer)
+              end)
+              wait(4)
+            end
+          end
+        end
+    end
+    function teleport()
+        while wait() do
+          pcall(function()
+            teleportReturner()
+            if foundAnything ~= "" then
+              teleportReturner()
+            end
+          end)
+        end
+    end
+    teleport()
+end)
+local rejoinBtn = create("TextButton", {Parent = settingPanel, Position = UDim2.new(0, 220, 0, 100), Size = UDim2.new(0, 200, 0, 28), Text = "Rejoin Server", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 13})
+create("UICorner", {Parent = rejoinBtn, CornerRadius = UDim.new(0,6)})
+addHoverAnim(rejoinBtn)
+rejoinBtn.MouseButton1Click:Connect(function()
+    game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+end)
+end
+-- Close confirmation modal (refined behavior)
+local modal = create("Frame", {Parent = screenGui, Size = UDim2.new(0, 420, 0, 160), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(5,5,10), Visible = false})
+create("UICorner", {Parent = modal, CornerRadius = UDim.new(0,10)})
+create("UIStroke", {Parent = modal, Color = TON_ACCENT, Thickness = 1})
+local modalLabel = create("TextLabel", {Parent = modal, Position = UDim2.new(0,12,0,12), Size = UDim2.new(1,-24,0,48), BackgroundTransparency = 1, Text = "Do you want to close Ton618 hub?! Yes or No", TextColor3 = TON_PRIMARY, Font = Enum.Font.GothamBold, TextSize = 16, TextWrapped = true})
+local yesBtn = create("TextButton", {Parent = modal, Size = UDim2.new(0, 140, 0, 36), Position = UDim2.new(0.5, -150, 1, -52), Text = "Yes", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20)})
+create("UICorner", {Parent = yesBtn, CornerRadius = UDim.new(0,8)})
+addHoverAnim(yesBtn)
+local noBtn = create("TextButton", {Parent = modal, Size = UDim2.new(0, 140, 0, 36), Position = UDim2.new(0.5, 10, 1, -52), Text = "No", BackgroundColor3 = Color3.fromRGB(8,15,25), TextColor3 = TON_PRIMARY})
+create("UICorner", {Parent = noBtn, CornerRadius = UDim.new(0,8)})
+addHoverAnim(noBtn)
+closeBtn.MouseButton1Click:Connect(function()
+    modal.Visible = true
+    modal.Position = UDim2.new(0.5, 0, 0.5, -20)
+    tween(modal, {Position = UDim2.new(0.5, 0, 0.5, 0)}, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+end)
+yesBtn.MouseButton1Click:Connect(function()
+    modal.Visible = false
+    pcall(function() main:Destroy() end)
+    notify("Ton618 hub! closed")
+end)
+noBtn.MouseButton1Click:Connect(function()
+    modal.Visible = false
+    notify("Close canceled")
+end)
+-- Make main draggable
+local dragging, dragInput, dragStart, startPos
+main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+main.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        if main and main.Parent then
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end
+end)
+-- Smooth GUI show/hide
+local isVisible = true
+local hiddenPos = UDim2.new(0.5, 0, -1.2, 0)
+local shownPos = main.Position
+local function showGUI()
+    isVisible = true
+    if main and main.Parent then
+        main.Visible = true
+        tween(main, {Position = shownPos}, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out))
+    end
+end
+local function hideGUI()
+    isVisible = false
+    if main and main.Parent then
+        tween(main, {Position = hiddenPos}, TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.In))
+        delay(0.4, function()
+            if not isVisible and main and main.Parent then
+                main.Visible = false
+            end
+        end)
+    end
+end
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == TOGGLE_KEY then
+        if isVisible then hideGUI() else showGUI() end
+    end
+end)
+-- Reapply on respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    wait(0.5)
+    local char = LocalPlayer.Character
+    if char then
+        if espEnabled then
+            for _, plr in pairs(Players:GetPlayers()) do
+                addESP(plr)
+            end
+        end
+    end
+end)
+-- STARTUP: loading/typewriter modal without permission
+spawn(function()
+    local loader = create("Frame", {Parent = screenGui, Size = UDim2.new(0,520,0,220), AnchorPoint = Vector2.new(0.5,0.5), Position = UDim2.new(0.5,0.5), BackgroundColor3 = Color3.fromRGB(5,5,10)})
+    create("UICorner", {Parent = loader, CornerRadius = UDim.new(0,10)})
+    create("UIStroke", {Parent = loader, Color = TON_ACCENT, Thickness = 1})
+    local txtLabel = create("TextLabel", {Parent = loader, Position = UDim2.new(0,12,0,12), Size = UDim2.new(1,-24,0,140), BackgroundTransparency = 1, Text = "", TextColor3 = TON_PRIMARY, Font = Enum.Font.Gotham, TextSize = 16, TextWrapped = true})
+    local skipBtn = create("TextButton", {Parent = loader, Position = UDim2.new(0.5, -50, 1, -40), Size = UDim2.new(0, 100, 0, 30), Text = "Skip", BackgroundColor3 = TON_ACCENT, TextColor3 = Color3.fromRGB(10,10,20), Font = Enum.Font.GothamBold, TextSize = 14})
+    create("UICorner", {Parent = skipBtn, CornerRadius = UDim.new(0,8)})
+    addHoverAnim(skipBtn)
+    skipBtn.MouseButton1Click:Connect(function()
+        pcall(function() loader:Destroy() end)
+        showGUI()
+        notify("Ton618 hub! loaded (skipped)")
+    end)
+    local messages = {
+        "About this script:",
+        [[This interface (Ton618 hub!) offers several local utilities intended for convenience and experimentation: movement tuning, a local ghost mode, a smooth spectate camera, and a small executor for trusted, client-side snippets. The goal is to be helpful and unobtrusive — a compact toolkit for power users who want to tweak their client experience.]],
+        [[Important: the code you run executes in your own client. We provide the interface as-is for convenience and education. IF YOU GET BANNED OR EXPERIENCE ISSUES, IT IS NOT OUR RESPONSIBILITY. Use caution and only run code you trust.]]
+    }
+    local function typeText(label, message, speed)
+        speed = speed or 0.012
+        label.Text = ""
+        for i = 1, #message do
+            label.Text = message:sub(1, i)
+            typeSound:Play()
+            wait(speed)
+        end
+    end
+    for i, msg in ipairs(messages) do
+        typeText(txtLabel, msg)
+        wait(0.18)
+        if i < #messages then
+            txtLabel.Text = txtLabel.Text.."\n\n"
+        end
+    end
+    wait(2)
+    -- Reveal main cleanly via the showGUI() helper so the GUI always appears post-loader.
+    showGUI()
+    notify("Ton618 hub! loaded")
+    pcall(function() loader:Destroy() end)
+    wait(0.5) -- Wait after loading screen is gone
+end)
+print("Ton618 hub! (reskin) loaded — press K to toggle")
